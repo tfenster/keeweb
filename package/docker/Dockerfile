@@ -13,11 +13,15 @@
 # Or, to generate self-signed cert, run:
 # docker run --name keeweb -d -p 443:443 -p 80:80 -e 'DH_SIZE=512' antelle/keeweb
 
-FROM nginx:stable
+FROM armhf/alpine:latest
 MAINTAINER Antelle "antelle.net@gmail.com"
 
+# install nginx
+RUN apk add --update bash nginx && \
+    mkdir -p /run/nginx/
+
 # install
-RUN apt-get -y update && apt-get -y install openssl wget unzip
+RUN apk add --update openssl wget unzip ca-certificates
 
 # setup nginx
 RUN rm -rf /etc/nginx/conf.d/*; \
@@ -25,12 +29,9 @@ RUN rm -rf /etc/nginx/conf.d/*; \
 
 RUN sed -i 's/access_log.*/access_log \/dev\/stdout;/g' /etc/nginx/nginx.conf; \
     sed -i 's/error_log.*/error_log \/dev\/stdout info;/g' /etc/nginx/nginx.conf; \
-    sed -i 's/^pid/daemon off;\npid/g' /etc/nginx/nginx.conf
+    sed -i 's/error_log \/dev\/stdout info;/error_log \/dev\/stdout info;\n\n# daemon mode off\ndaemon off;/g' /etc/nginx/nginx.conf
 
 ADD keeweb.conf /etc/nginx/conf.d/keeweb.conf
-
-ADD entrypoint.sh /opt/entrypoint.sh
-RUN chmod a+x /opt/entrypoint.sh
 
 # clone keeweb
 RUN wget https://github.com/keeweb/keeweb/archive/gh-pages.zip; \
@@ -46,6 +47,9 @@ RUN wget https://github.com/keeweb/keeweb-plugins/archive/master.zip; \
     mv keeweb-plugins-master/docs keeweb/plugins; \
     rm -rf keeweb-plugins-master \
     rm keeweb/plugins/CNAME
+
+ADD entrypoint.sh /opt/entrypoint.sh
+RUN chmod a+x /opt/entrypoint.sh
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
 CMD ["nginx"]
